@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1c2b18">
+<title>SELVA · La Travesía</title>
+<style>
+  :root{
+    --sky-top:#f4b25a;
+    --sky-mid:#e07a3e;
+    --canopy:#1c3a1e;
+    --earth:#3b2a1a;
+    --bone:#f3ead5;
+    --accent:#ffcf5c;
+    --danger:#e5484d;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;overflow:hidden;background:#0e140c;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;color:var(--bone);}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  canvas{display:block;width:100%;height:100%;touch-action:none;image-rendering:optimizeSpeed;}
+
+  /* ---------- Capas de interfaz ---------- */
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;gap:18px;padding:24px;z-index:30;
+    background:radial-gradient(120% 120% at 50% 20%, rgba(20,30,14,.55), rgba(8,12,6,.92));
+    backdrop-filter:blur(2px);}
+  .screen.hidden{display:none;}
+  .title{font-size:clamp(44px,13vw,96px);font-weight:800;letter-spacing:.14em;line-height:.92;
+    color:var(--bone);text-shadow:0 4px 0 #0a1206, 0 0 26px rgba(255,207,92,.35);}
+  .title small{display:block;font-size:clamp(13px,3.4vw,20px);letter-spacing:.5em;font-weight:600;
+    color:var(--accent);margin-top:14px;text-shadow:none;padding-left:.5em;}
+  .pill{font-size:13px;letter-spacing:.25em;text-transform:uppercase;color:#caa86a;}
+  .btn{appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:800;letter-spacing:.18em;
+    text-transform:uppercase;font-size:18px;color:#22160a;background:var(--accent);
+    padding:16px 40px;border-radius:999px;box-shadow:0 6px 0 #b8861f, 0 10px 24px rgba(0,0,0,.4);
+    transition:transform .08s, box-shadow .08s;}
+  .btn:active{transform:translateY(4px);box-shadow:0 2px 0 #b8861f, 0 6px 16px rgba(0,0,0,.4);}
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+  .btn-ghost{background:transparent;color:var(--bone);box-shadow:none;
+    border:2px solid rgba(243,234,213,.4);padding:14px 28px;font-size:15px;}
+  .btn-ghost:active{transform:translateY(2px);box-shadow:none;}
+  /* selector de pantallas */
+  #phases{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:440px;margin:2px 0;}
+  .phase-btn{appearance:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:10px;
+    background:rgba(28,40,22,.55);border:2px solid rgba(255,207,92,.45);color:var(--bone);
+    padding:11px 16px;border-radius:14px;transition:transform .08s, background .08s;min-width:150px;text-align:left;}
+  .phase-btn:active{transform:scale(.96);}
+  .phase-btn .pn{font-weight:800;font-size:20px;color:var(--accent);min-width:24px;text-align:center;}
+  .phase-btn .pl{font-weight:700;letter-spacing:.04em;font-size:14px;}
+  .phase-btn.locked{opacity:.4;border-color:rgba(243,234,213,.25);cursor:default;}
+  .phase-btn.locked .pn{color:#cbb98a;}
+  .hint{max-width:340px;font-size:14px;line-height:1.6;color:#d9cba8;opacity:.9;}
+  .hint b{color:var(--accent);}
+  .stat-big{font-size:clamp(34px,9vw,60px);font-weight:800;color:var(--accent);}
+  .stat-label{font-size:12px;letter-spacing:.35em;text-transform:uppercase;color:#bca978;margin-top:-8px;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:flex-start;
+    justify-content:space-between;padding:14px 16px;pointer-events:none;
+    font-weight:800;letter-spacing:.08em;text-shadow:0 2px 4px rgba(0,0,0,.6);}
+  #hearts{font-size:24px;letter-spacing:2px;}
+  #score-box{text-align:right;margin-top:40px;}
+  #mute{position:absolute;top:10px;right:12px;z-index:40;width:38px;height:38px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;user-select:none;
+    background:rgba(20,28,14,.5);border:2px solid rgba(246,236,212,.35);color:#f6ecd4;
+    backdrop-filter:blur(3px);pointer-events:auto;}
+  #mute:active{transform:scale(.92);}
+  #score{font-size:26px;color:var(--accent);}
+  #score-sub{font-size:11px;letter-spacing:.3em;color:#e7d8b2;opacity:.8;}
+  #apples{font-size:18px;margin-top:6px;color:#ffd9d0;font-weight:800;}
+  #weapon{position:absolute;top:54px;left:16px;z-index:20;font-size:12px;letter-spacing:.2em;  text-transform:uppercase;color:#ffe6a3;text-shadow:0 2px 4px rgba(0,0,0,.6);pointer-events:none;}
+
+  /* ---------- Barra de vida del jefe ---------- */
+  #bossbar{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:22;
+    width:min(560px,82vw);text-align:center;pointer-events:none;}
+  #boss-name{font-size:13px;letter-spacing:.22em;font-weight:800;color:#ffd9d0;
+    text-transform:uppercase;text-shadow:0 2px 4px rgba(0,0,0,.7);margin-bottom:5px;}
+  #boss-track{height:16px;border-radius:999px;background:rgba(10,16,8,.7);
+    border:2px solid rgba(255,255,255,.35);overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.4);}
+  #boss-fill{height:100%;width:100%;border-radius:999px;
+    background:linear-gradient(90deg,#e5484d,#ff8a3d);transition:width .18s ease;}
+  #bossbar.hidden{display:none;}
+
+  /* ---------- Controles táctiles ---------- */
+  #pad{position:absolute;inset:0;z-index:25;pointer-events:none;}
+  .tbtn{position:absolute;bottom:24px;pointer-events:auto;width:74px;height:74px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:#f6ecd4;
+    background:rgba(20,28,14,.42);border:2px solid rgba(246,236,212,.35);backdrop-filter:blur(3px);
+    user-select:none;transition:transform .06s, background .06s;}
+  .tbtn:active,.tbtn.on{transform:scale(.92);background:rgba(255,207,92,.32);border-color:var(--accent);}
+  #b-left{left:22px;}
+  #b-right{left:108px;}
+  #b-jump{right:22px;bottom:96px;}
+  #b-atk{right:108px;background:rgba(229,72,77,.30);border-color:rgba(255,150,150,.5);}
+  .controls-off .tbtn{display:none;}
+  @media (pointer:fine){ /* en escritorio ocultamos pad si no se ha tocado */ }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <!-- Botón de silencio -->
+  <div id="mute" title="Silenciar">🔊</div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="hearts">❤❤❤</div>
+    <div id="score-box">
+      <div id="score">0 m</div>
+      <div id="score-sub">DISTANCIA</div>
+      <div id="apples">🍎 0</div>
+    </div>
+  </div>
+  <div id="weapon" class="hidden">A mano</div>
+
+  <!-- Barra de vida del jefe -->
+  <div id="bossbar" class="hidden">
+    <div id="boss-name">🐊 COCODRILO ANCESTRAL</div>
+    <div id="boss-track"><div id="boss-fill"></div></div>
+  </div>
+
+  <!-- Controles táctiles -->
+  <div id="pad" class="hidden">
+    <div class="tbtn" id="b-left">◀</div>
+    <div class="tbtn" id="b-right">▶</div>
+    <div class="tbtn" id="b-jump">⤒</div>
+    <div class="tbtn" id="b-atk">✦</div>
+  </div>
+
+  <!-- Pantalla de inicio -->
+  <div class="screen" id="start">
+    <div class="pill">Elige tu pantalla</div>
+    <h1 class="title">SELVA<small>LA TRAVESÍA</small></h1>
+    <div id="phases"></div>
+    <p class="hint">
+      Cruza la selva, esquiva <b>serpientes</b> y <b>monos que lanzan cocos</b>,
+      salta los <b>ríos con cocodrilos</b> y derrota al <b>jefe</b> de cada pantalla
+      para desbloquear la siguiente.
+    </p>
+    <p class="hint" style="opacity:.7;font-size:12px">
+      <b>← →</b> mover · <b>Espacio/↑</b> saltar (otra vez en el aire = <b>doble salto</b>)
+      · <b>X</b> atacar. En móvil usa los botones en pantalla.
+    </p>
+  </div>
+
+  <!-- Pantalla de fin -->
+  <div class="screen hidden" id="over">
+    <div class="pill" id="over-msg">No sobreviviste a la selva</div>
+    <div class="stat-big" id="final-score">0 m</div>
+    <div class="stat-label">distancia recorrida</div>
+    <div class="hint" id="best-line" style="margin-top:6px">Mejor marca: 0 m</div>
+    <div class="btn-row">
+      <button class="btn" id="retry">Reintentar pantalla</button>
+      <button class="btn btn-ghost" id="menu">Pantallas</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+"use strict";
+
+// ============================================================
+//  Configuración general
+// ============================================================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W=0, H=0, DPR=1;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.floor(W*DPR);
+  canvas.height = Math.floor(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ---- elementos UI
+const ui = {
+  hud: document.getElementById('hud'),
+  hearts: document.getElementById('hearts'),
+  score: document.getElementById('score'),
+  apples: document.getElementById('apples'),
+  weapon: document.getElementById('weapon'),
+  bossbar: document.getElementById('bossbar'),
+  bossFill: document.getElementById('boss-fill'),
+  bossName: document.getElementById('boss-name'),
+  pad: document.getElementById('pad'),
+  start: document.getElementById('start'),
+  over: document.getElementById('over'),
+  finalScore: document.getElementById('final-score'),
+  bestLine: document.getElementById('best-line'),
+  overMsg: document.getElementById('over-msg'),
+};
+
+// ============================================================
+//  Entrada (teclado + táctil)
+// ============================================================
+const keys = { left:false, right:false, jump:false, atk:false };
+let jumpEdge=false, atkEdge=false;          // pulsaciones de un solo disparo
+
+addEventListener('keydown', e=>{
+  if(e.repeat) return;
+  switch(e.code){
+    case 'ArrowLeft': case 'KeyA': keys.left=true; break;
+    case 'ArrowRight': case 'KeyD': keys.right=true; break;
+    case 'ArrowUp': case 'Space': case 'KeyW': keys.jump=true; jumpEdge=true; e.preventDefault(); break;
+    case 'KeyX': case 'KeyK': case 'KeyJ': keys.atk=true; atkEdge=true; break;
+  }
+});
+addEventListener('keyup', e=>{
+  switch(e.code){
+    case 'ArrowLeft': case 'KeyA': keys.left=false; break;
+    case 'ArrowRight': case 'KeyD': keys.right=false; break;
+    case 'ArrowUp': case 'Space': case 'KeyW': keys.jump=false; break;
+    case 'KeyX': case 'KeyK': case 'KeyJ': keys.atk=false; break;
+  }
+});
+
+// botones táctiles
+function bindBtn(id, on, off){
+  const el = document.getElementById(id);
+  const press = e=>{ e.preventDefault(); el.classList.add('on'); on(); };
+  const release = e=>{ e.preventDefault(); el.classList.remove('on'); if(off) off(); };
+  el.addEventListener('touchstart', press, {passive:false});
+  el.addEventListener('touchend', release, {passive:false});
+  el.addEventListener('touchcancel', release, {passive:false});
+  el.addEventListener('mousedown', press);
+  el.addEventListener('mouseup', release);
+  el.addEventListener('mouseleave', release);
+}
+bindBtn('b-left',  ()=>keys.left=true,  ()=>keys.left=false);
+bindBtn('b-right', ()=>keys.right=true, ()=>keys.right=false);
+bindBtn('b-jump',  ()=>{keys.jump=true; jumpEdge=true;}, ()=>keys.jump=false);
+bindBtn('b-atk',   ()=>{keys.atk=true; atkEdge=true;}, ()=>keys.atk=false);
+
+// ============================================================
+//  Audio (chiptune procedural, estilo Game Boy)
+// ============================================================
+const SND = (()=>{
+  let ctx=null, master=null, sfx=null, music=null, muted=false;
+  try{ muted = localStorage.getItem('selva_mute')==='1'; }catch(e){}
+  let timer=null, step=0, nextTime=0;
+
+  function init(){
+    if(!ctx){
+      const AC = window.AudioContext||window.webkitAudioContext;
+      if(!AC) return;
+      ctx = new AC();
+      master = ctx.createGain(); master.gain.value = muted?0:0.85; master.connect(ctx.destination);
+      sfx = ctx.createGain(); sfx.gain.value=0.9; sfx.connect(master);
+      music = ctx.createGain(); music.gain.value=0.32; music.connect(master);
+    }
+    if(ctx.state==='suspended') ctx.resume();   // imprescindible en móvil
+  }
+
+  // tono con envolvente; 'at' = tiempo absoluto opcional, 'dest' = nodo destino
+  function tone(freq, dur, opt){
+    opt=opt||{};
+    if(!ctx) return;
+    const at = (opt.at!=null) ? opt.at : ctx.currentTime + (opt.when||0);
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=opt.type||'square';
+    o.frequency.setValueAtTime(freq, at);
+    if(opt.slideTo) o.frequency.exponentialRampToValueAtTime(opt.slideTo, at+dur);
+    const vol=opt.vol!=null?opt.vol:0.25;
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(vol, at+0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, at+dur);
+    o.connect(g); g.connect(opt.dest||sfx);
+    o.start(at); o.stop(at+dur+0.03);
+  }
+  // ruido corto (impactos)
+  function noise(dur, vol){
+    if(!ctx) return;
+    const t=ctx.currentTime;
+    const n=ctx.createBufferSource();
+    const buf=ctx.createBuffer(1, Math.max(1,ctx.sampleRate*dur), ctx.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+    n.buffer=buf;
+    const g=ctx.createGain(); g.gain.value=vol||0.15;
+    const f=ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=700;
+    n.connect(f); f.connect(g); g.connect(sfx);
+    n.start(t); n.stop(t+dur);
+  }
+
+  // --- música de fondo: melodía + bajo en bucle (semitonos desde A4=440) ---
+  function nt(s){ return 440*Math.pow(2,s/12); }
+  const MEL = [0,7,5,7, 12,7,5,3, 5,3,0,3, 5,12,7,null];
+  const BASS= [-12,null,-12,null, -5,null,-5,null, -7,null,-7,null, -12,null,-5,null];
+  const STEP=0.16;
+  function sched(){
+    if(!ctx) return;
+    while(nextTime < ctx.currentTime + 0.12){
+      if(!muted){
+        const m=MEL[step], b=BASS[step];
+        if(m!=null) tone(nt(m), STEP*0.9, {type:'square', vol:0.14, at:nextTime, dest:music});
+        if(b!=null) tone(nt(b), STEP*0.98,{type:'triangle', vol:0.20, at:nextTime, dest:music});
+      }
+      nextTime+=STEP; step=(step+1)%MEL.length;
+    }
+  }
+  function startMusic(){ if(!ctx||timer) return; nextTime=ctx.currentTime+0.06; timer=setInterval(sched,30); }
+  function stopMusic(){ if(timer){ clearInterval(timer); timer=null; } }
+  function toggleMute(){
+    muted=!muted;
+    if(master) master.gain.value = muted?0:0.85;
+    try{ localStorage.setItem('selva_mute', muted?'1':'0'); }catch(e){}
+    return muted;
+  }
+
+  return {
+    init, startMusic, stopMusic, toggleMute, isMuted:()=>muted,
+    jump(){ tone(420,0.12,{slideTo:760,vol:0.22}); },
+    djump(){ tone(640,0.12,{slideTo:1040,vol:0.22}); },
+    swing(){ tone(520,0.06,{type:'square',slideTo:300,vol:0.16}); },
+    knife(){ tone(940,0.09,{slideTo:480,vol:0.18}); },
+    apple(){ tone(720,0.06,{type:'triangle',slideTo:1080,vol:0.2}); },
+    weapon(){ tone(523,0.09,{vol:0.22}); tone(784,0.13,{vol:0.22,when:0.09}); },
+    enemyDown(){ tone(480,0.09,{slideTo:120,vol:0.22}); noise(0.07,0.12); },
+    hurt(){ tone(220,0.22,{type:'sawtooth',slideTo:70,vol:0.28}); },
+    gameOver(){ [440,330,262,196].forEach((f,i)=>tone(f,0.30,{vol:0.26,when:i*0.17})); },
+    coco(){ tone(300,0.08,{type:'square',slideTo:180,vol:0.14}); },
+    bossAppear(){ tone(120,0.55,{type:'sawtooth',slideTo:55,vol:0.32}); noise(0.4,0.1); },
+    bossHit(){ tone(280,0.08,{slideTo:150,vol:0.26}); noise(0.05,0.16); },
+    bossDown(){ [523,659,784,1047,1319].forEach((f,i)=>tone(f,0.32,{vol:0.26,when:i*0.13})); },
+    unlock(){ [659,784,988,1319].forEach((f,i)=>tone(f,0.22,{type:'triangle',vol:0.24,when:i*0.1})); },
+  };
+})();
+
+// arranca el audio en la primera interacción (política de autoplay)
+function primeAudio(){ SND.init(); }
+addEventListener('keydown', primeAudio, {once:true});
+addEventListener('pointerdown', primeAudio, {once:true});
+
+
+// ============================================================
+//  Estado del juego
+// ============================================================
+const STATE = { MENU:0, PLAY:1, OVER:2 };
+let state = STATE.MENU;
+
+const GRAV = 2400;        // px/s^2
+const GROUND_Y = ()=> H - Math.min(150, H*0.22);   // altura del suelo base
+const RUN = 300;          // velocidad de carrera
+const JUMP_V = 880;       // impulso de salto
+
+let cameraX = 0;
+let wind = 0, windT = 0;   // viento de la Cumbre
+let best = 0;
+try { best = +(localStorage.getItem('selva_best')||0) || 0; } catch(e){}
+
+const player = {
+  x:0, y:0, w:34, h:50, vx:0, vy:0,
+  onGround:false, face:1, hp:3, inv:0,
+  weapon:0,          // 0 a mano, 1 machete, 2 cuchillos
+  attack:0,          // temporizador de animación de ataque
+  knives:0,          // munición de cuchillos
+  jumps:0,           // saltos usados (para doble salto)
+  apples:0,          // manzanas recogidas
+  alive:true, dist:0,
+};
+
+// mundo: lista de plataformas (suelo y troncos), enemigos, items, proyectiles, partículas
+let platforms=[], enemies=[], items=[], shots=[], parts=[], floats=[], cocos=[];
+let worldEnd=0;        // hasta dónde está generado el mundo
+let segCount=0;
+
+// --- jefe ---
+let boss=null;            // objeto del jefe (null si no hay)
+let bossMode=false;       // ¿estamos en una pelea de jefe?
+let arenaX0=0, arenaX1=0; // límites de la arena
+let nextBossDist=600;     // distancia (m) a la que aparece el próximo jefe
+
+// --- fases / pantallas ---
+const BOSS_FIRST = 600;   // distancia del primer jefe
+const BOSS_GAP   = 800;   // distancia entre jefes
+const PHASE_NAMES = ['La Espesura','El Gran Río','Ruinas Perdidas','Pantano Profundo','La Cascada','Cumbre Salvaje'];
+function phaseName(k){ return PHASE_NAMES[k-1] || ('Travesía '+k); }
+
+// paleta y ambiente de cada bioma (uno por pantalla; las extra reusan el último)
+const BIOMES = [
+  { // 1 · La Espesura — atardecer selvático cálido
+    sky:['#f4b25a','#e07a3e','#7a3b22'], sun:'#ffe7a8', showSun:true,
+    hillFar:'#2f4a2c', hillNear:'#27411f', canopy:'rgba(18,36,18,0.9)', vine:'rgba(20,40,20,0.55)',
+    earth:'#3b2a1a', grass:'#3f7d33', blade:'#2f5f27', water:'#1d6b73', pit:'#160d06',
+    logA:'#6b4423', logB:'#4d2f17', fog:null },
+  { // 2 · El Gran Río — día azul y aguas anchas
+    sky:['#9bd3e6','#5fb0d2','#2f7fa8'], sun:'#fff6e0', showSun:true,
+    hillFar:'#3f7a5e', hillNear:'#2f6450', canopy:'rgba(24,52,40,0.9)', vine:'rgba(28,60,48,0.5)',
+    earth:'#6a5a3a', grass:'#4f9d53', blade:'#3a7d3f', water:'#2aa3c4', pit:'#10202a',
+    logA:'#7a5a33', logB:'#553d20', fog:null },
+  { // 3 · Ruinas Perdidas — piedra y polvo dorado
+    sky:['#ecd29a','#d49a5a','#9a5e34'], sun:'#fff0c4', showSun:true,
+    hillFar:'#7d6a44', hillNear:'#665436', canopy:'rgba(60,52,30,0.85)', vine:'rgba(90,80,40,0.45)',
+    earth:'#7a6038', grass:'#8a8a3a', blade:'#6e6e2c', water:'#3a7a6a', pit:'#1a1206',
+    logA:'#8a6a3a', logB:'#604824', fog:null },
+  { // 4 · Pantano Profundo — verdes oscuros y niebla
+    sky:['#5a6a55','#3e4a48','#23302e'], sun:'#cdd9bf', showSun:false,
+    hillFar:'#2a3a32', hillNear:'#1e2c28', canopy:'rgba(14,26,18,0.92)', vine:'rgba(30,44,30,0.6)',
+    earth:'#2a2a22', grass:'#3a5a36', blade:'#2a3f28', water:'#2e4a3a', pit:'#0a0f0a',
+    logA:'#4a3a26', logB:'#332618', fog:'rgba(120,150,120,0.12)' },
+  { // 5 · La Cascada — azules frescos y bruma
+    sky:['#bfe4ec','#7fc0d6','#3f86a6'], sun:'#ffffff', showSun:true,
+    hillFar:'#4a7a86', hillNear:'#3a626e', canopy:'rgba(30,52,58,0.88)', vine:'rgba(40,70,76,0.5)',
+    earth:'#4a5258', grass:'#4f9d8a', blade:'#3a7d6e', water:'#36b0d0', pit:'#13242a',
+    logA:'#5a5a52', logB:'#3e3e38', fog:'rgba(205,232,240,0.12)' },
+  { // 6 · Cumbre Salvaje — atardecer rojizo en altura
+    sky:['#f08a5d','#b83b5e','#3a2a4e'], sun:'#ffd9a8', showSun:true,
+    hillFar:'#5a3a5e', hillNear:'#432a4e', canopy:'rgba(34,20,40,0.9)', vine:'rgba(60,40,60,0.5)',
+    earth:'#4a3340', grass:'#7a5a4a', blade:'#5e4438', water:'#5a4a8a', pit:'#160d1a',
+    logA:'#6a4a4a', logB:'#4a3232', fog:null },
+];
+function currentBiome(){ return BIOMES[Math.min(currentPhase-1, BIOMES.length-1)] || BIOMES[0]; }
+function biomeIndex(){ return Math.min(currentPhase-1, BIOMES.length-1); }
+function phaseStartDist(k){ return k<=1 ? 0 : BOSS_FIRST + (k-2)*BOSS_GAP; }   // dónde empieza la fase k
+function phaseBossDist(k){ return BOSS_FIRST + (k-1)*BOSS_GAP; }               // dónde está su jefe
+let currentPhase = 1;
+let unlockedPhases = 1;
+try { unlockedPhases = Math.max(1, +(localStorage.getItem('selva_phases')||1) || 1); } catch(e){}
+
+// ============================================================
+//  Generación procedural del mundo
+// ============================================================
+function resetWorld(startDist){
+  startDist = startDist || 0;
+  platforms=[]; enemies=[]; items=[]; shots=[]; parts=[]; floats=[]; cocos=[];
+  worldEnd=0; segCount=0;
+  boss=null; bossMode=false;
+  const gy = GROUND_Y();
+  const startX = 120 + startDist*40;
+  // plataforma inicial segura y larga bajo el jugador
+  platforms.push({x:startX-360, y:gy, w:1100, h:H, water:false, safe:true});
+  worldEnd = startX + 740;
+  cameraX = Math.max(0, startX - W*0.32);
+  // equipo según lo avanzada que sea la fase
+  let weapon=0, knives=0;
+  if(currentPhase>=2){ weapon=2; knives = 6 + (currentPhase-2)*4; }
+  // jugador
+  Object.assign(player,{
+    x:startX, y:gy-50, vx:0, vy:0, onGround:true, face:1,
+    hp:3, inv:0, weapon, attack:0, knives, jumps:0, apples:0, alive:true, dist:startDist
+  });
+  // el próximo jefe es el de esta fase
+  nextBossDist = phaseBossDist(currentPhase);
+  // colchón inicial
+  for(let i=0;i<6;i++) genSegment();
+}
+
+// dificultad creciente según distancia
+function diff(){ return Math.min(1, player.dist/2200); }
+
+function genSegment(){
+  const gy = GROUND_Y();
+  const d = diff();
+  segCount++;
+
+  // ¿hueco (río/foso) antes de la siguiente plataforma?
+  const makeGap = segCount>2 && Math.random() < 0.55;
+  if(makeGap){
+    const gapW = 120 + Math.random()*(120 + d*160);   // 120–400 px
+    const isWater = Math.random() < 0.6;
+    // troncos / piedras para cruzar el hueco
+    const stones = gapW > 200 ? 2 : 1;
+    const stoneW = 70;
+    for(let s=0;s<stones;s++){
+      const sx = worldEnd + (gapW*(s+1)/(stones+1)) - stoneW/2;
+      const sy = gy - (isWater? 4 : 0);
+      platforms.push({x:sx, y:sy, w:stoneW, h:26, water:false, log:true});
+      // cocodrilo bajo el tronco a veces
+      if(isWater && Math.random() < 0.5+d*0.3){
+        enemies.push(makeCroc(sx+stoneW/2, gy));
+      }
+    }
+    if(isWater){
+      // banda de agua decorativa (zona mortal si caes)
+      platforms.push({x:worldEnd, y:gy+30, w:gapW, h:H, water:true, deadly:true, noland:true});
+      // pirañas saltarinas (El Gran Río)
+      if(biomeIndex()===1){
+        const n = 1 + (gapW>240?1:0);
+        for(let i=0;i<n;i++) enemies.push(makePiranha(worldEnd + gapW*(i+1)/(n+1), gy));
+      }
+    } else {
+      platforms.push({x:worldEnd, y:gy+60, w:gapW, h:H, pit:true, deadly:true, noland:true});
+    }
+    worldEnd += gapW;
+  }
+
+  // plataforma sólida de suelo
+  const segW = 260 + Math.random()*320;
+  const plat = {x:worldEnd, y:gy, w:segW, h:H, water:false};
+  platforms.push(plat);
+
+  // enemigos terrestres (serpientes)
+  if(segCount>2 && Math.random() < 0.35 + d*0.4){
+    const ex = worldEnd + 60 + Math.random()*(segW-120);
+    enemies.push(makeSnake(ex, gy, worldEnd+30, worldEnd+segW-30));
+  }
+
+  // monos en las copas (lanzan cocos)
+  if(segCount>3 && Math.random() < 0.28 + d*0.22){
+    const mx = worldEnd + 80 + Math.random()*(segW-160);
+    enemies.push(makeMonkey(mx));
+  }
+
+  // peligro característico del bioma
+  const bi = biomeIndex();
+  if(segCount>2){
+    if(bi===2 && Math.random() < 0.40 + d*0.2){        // Ruinas: pinchos
+      enemies.push(makeSpikes(worldEnd + 60 + Math.random()*Math.max(20,segW-150), gy));
+    } else if(bi===3 && Math.random() < 0.40 + d*0.2){ // Pantano: planta carnívora
+      enemies.push(makePlant(worldEnd + 60 + Math.random()*Math.max(20,segW-130), gy));
+    } else if(bi===4 && Math.random() < 0.45 + d*0.2){ // Cascada: roca que cae
+      enemies.push(makeRock(worldEnd + 80 + Math.random()*Math.max(20,segW-170), gy));
+    } else if(bi===5 && Math.random() < 0.42 + d*0.2){ // Cumbre: ave en picado
+      enemies.push(makeBird(worldEnd + segW + 60, gy));
+    }
+  }
+
+  // items / armas
+  spawnItems(worldEnd, segW, gy);
+
+  worldEnd += segW;
+}
+
+function spawnItems(x0, segW, gy){
+  // armas: aparecen pronto y de tanto en tanto
+  if(player.weapon<1 && player.dist>60 && Math.random()<0.5){
+    items.push({type:'machete', x:x0+segW*0.5, y:gy-90, w:26, h:26, bob:Math.random()*6});
+  } else if(Math.random()<0.16){
+    items.push({type:'knives', x:x0+segW*(0.3+Math.random()*0.4), y:gy-90, w:26, h:26, bob:Math.random()*6});
+  }
+  // corazón ocasional
+  if(player.hp<3 && Math.random()<0.12){
+    items.push({type:'heart', x:x0+segW*0.6, y:gy-120, w:24, h:24, bob:Math.random()*6});
+  }
+  // monedas/frutas para puntos
+  if(Math.random()<0.7){
+    const n = 3+Math.floor(Math.random()*3);
+    const cx = x0 + segW*0.3;
+    for(let i=0;i<n;i++){
+      items.push({type:'fruit', x:cx+i*26, y:gy-70-Math.sin(i)*16, w:16, h:16, bob:i*1.2});
+    }
+  }
+}
+
+function makeSnake(x,y,minX,maxX){
+  return {kind:'snake', x, y:y-18, w:42, h:18, vx:(Math.random()<.5?-1:1)*60, minX, maxX, hp:1, dead:false, t:0};
+}
+function makeCroc(x,y){
+  return {kind:'croc', x:x-30, y:y-20, w:60, h:22, baseY:y-20, hp:2, dead:false, t:Math.random()*6, snap:0};
+}
+function makeMonkey(x){
+  const gy = GROUND_Y();
+  const y = gy - (180 + Math.random()*45);     // colgado de una rama, alcanzable con doble salto
+  return {kind:'monkey', x, y, w:34, h:34, hp:1, dead:false,
+    face:1, t:Math.random()*3, swing:0, throwing:0, cd:0.8+Math.random()*1.6, branchY:y-24};
+}
+
+// --- peligros característicos de cada bioma ---
+function makePiranha(x, gy){   // El Gran Río: salta del agua
+  return {kind:'piranha', x:x-13, y:gy, baseY:gy, w:26, h:16, vy:0, t:Math.random()*2,
+    state:'lurk', cd:0.5+Math.random()*1.1, invuln:true, dead:false};
+}
+function makeSpikes(x, gy){     // Ruinas Perdidas: pinchos que emergen
+  return {kind:'spikes', x, y:gy, w:42, h:26, t:Math.random()*1.5, phase:'hidden',
+    cd:1.0+Math.random()*1.2, up:0, invuln:true, dead:false};
+}
+function makePlant(x, gy){      // Pantano Profundo: planta carnívora (se puede cortar)
+  return {kind:'plant', x, y:gy-46, w:30, h:46, hp:2, t:Math.random()*2, phase:'idle',
+    cd:0.7+Math.random()*1.3, open:0, dead:false};
+}
+function makeRock(x, gy){       // La Cascada: roca que cae con sombra de aviso
+  return {kind:'rock', x:x-17, y:-70, w:34, h:34, shadowX:x-17, groundY:gy-34, vy:0,
+    phase:'wait', t:0, invuln:true, dead:false};
+}
+function makeBird(x, gy){       // Cumbre Salvaje: ave en picado
+  return {kind:'bird', x, y:gy-205, w:32, h:18, vx:-165, vy:0, baseY:gy-205,
+    t:0, phase:'approach', invuln:true, dead:false, flap:0};
+}
+
+// el mono lanza un coco en arco apuntando a la posición actual del jugador
+function throwCoco(m){
+  const ox=m.x+m.w/2, oy=m.y+m.h;
+  const tx=player.x+player.w/2, ty=player.y+player.h*0.5;
+  const T=1.05;
+  const vx=(tx-ox)/T;
+  const vy=(ty-oy)/T - 0.5*GRAV*T;
+  cocos.push({x:ox-8, y:oy, w:16, h:16, vx, vy, life:3, spin:0});
+  m.face = vx>0?1:-1;
+  m.throwing = 0.25;
+  SND.coco();
+}
+
+// ============================================================
+//  Jefe: Cocodrilo Ancestral
+// ============================================================
+function startBoss(){
+  const gy = GROUND_Y();
+  bossMode = true;
+  arenaX0 = Math.round(cameraX);
+  arenaX1 = arenaX0 + W;
+  cameraX = arenaX0;
+  // suelo sólido continuo en toda la arena (sin huecos)
+  platforms = platforms.filter(p => p.x+p.w < arenaX0-60 || p.x > arenaX1+60);
+  platforms.push({x:arenaX0-220, y:gy, w:W+440, h:H, arena:true});
+  // despeja enemigos, cocos e items de la zona
+  enemies = enemies.filter(e => e.x < arenaX0-60 || e.x > arenaX1+60);
+  cocos.length = 0; shots.length = 0;
+  // recoloca al jugador dentro de la arena
+  player.x = Math.min(Math.max(player.x, arenaX0+50), arenaX0+160);
+  // crea el jefe entrando desde la derecha
+  boss = {
+    x: arenaX1+40, y: gy-78, w:184, h:78, baseY: gy-78,
+    hpMax:24, hp:24,
+    phase:'enter', t:0, dir:-1, face:-1,
+    vx:0, mouth:0, hitFlash:0, hitCd:0, charges:1,
+  };
+  ui.bossName.textContent = '🐊 COCODRILO ANCESTRAL';
+  ui.bossFill.style.width = '100%';
+  ui.bossbar.classList.remove('hidden');
+  flash('¡JEFE: COCODRILO ANCESTRAL!');
+  SND.bossAppear();
+}
+
+function setPhase(p, dur){ boss.phase=p; boss.t=dur||0; }
+
+function updateBoss(dt){
+  const gy = GROUND_Y();
+  const b = boss;
+  if(b.hitFlash>0) b.hitFlash-=dt;
+  if(b.hitCd>0) b.hitCd-=dt;
+  if(b.mouth>0) b.mouth-=dt;
+  b.t -= dt;
+
+  const enraged = b.hp <= b.hpMax*0.5;     // segunda fase
+  const px = player.x + player.w/2;
+
+  switch(b.phase){
+    case 'enter': {
+      // entra deslizándose hasta su lado de la arena
+      const target = arenaX1 - b.w - 30;
+      b.x += (target - b.x) * Math.min(1, dt*3);
+      if(b.t<=0 && Math.abs(b.x-target)<8){ b.x=target; setPhase('idle', 0.7); }
+      break;
+    }
+    case 'idle': {
+      // mira al jugador, espera y prepara la embestida
+      b.face = (px < b.x+b.w/2) ? -1 : 1;
+      if(b.t<=0){ setPhase('telegraph', enraged?0.45:0.65); }
+      break;
+    }
+    case 'telegraph': {
+      // se agacha y abre la boca antes de embestir (aviso)
+      b.face = (px < b.x+b.w/2) ? -1 : 1;
+      b.dir = b.face;
+      b.mouth = 0.2;
+      if(b.t<=0){ b.vx = b.dir * (enraged?760:600); setPhase('charge', 2.0); }
+      break;
+    }
+    case 'charge': {
+      // embiste de lado a lado; daña por contacto; rebota en los muros
+      b.x += b.vx*dt;
+      b.face = b.vx>0?1:-1;
+      const left = arenaX0+20, right = arenaX1 - b.w - 20;
+      if(b.x<=left){ b.x=left; setPhase('stun', enraged?1.0:1.4); }
+      else if(b.x>=right){ b.x=right; setPhase('stun', enraged?1.0:1.4); }
+      else if(b.t<=0){ setPhase('stun', 1.2); }
+      // contacto con el jugador durante la embestida
+      if(player.inv<=0 && aabb(player, b)) hurt(1);
+      break;
+    }
+    case 'stun': {
+      // jadea, queda VULNERABLE: aquí se le pega
+      b.vx = 0;
+      b.vulnerable = true;
+      if(b.t<=0){
+        b.vulnerable = false;
+        // en fase enfurecida a veces encadena dos embestidas
+        if(enraged && b.charges>0 && Math.random()<0.5){ b.charges=0; setPhase('telegraph',0.4); }
+        else { b.charges=1; setPhase('idle', enraged?0.4:0.7); }
+      }
+      break;
+    }
+    case 'dead': break;
+  }
+  if(b.phase!=='stun') b.vulnerable=false;
+
+  // pequeño balanceo vertical (respiración)
+  b.y = b.baseY + Math.sin(performance.now()/300)*3;
+
+  // cuchillos del jugador contra el jefe
+  for(const s of shots){
+    if(aabb(s, b)){ s.life=0; hitBoss(b.vulnerable?2:0); if(!b.vulnerable) puff(s.x,s.y,'#cfd4da'); }
+  }
+
+  ui.bossFill.style.width = Math.max(0, (b.hp/b.hpMax)*100) + '%';
+}
+
+function hitBoss(dmg){
+  const b=boss;
+  if(!b || b.phase==='dead' || !b.vulnerable || dmg<=0 || b.hitCd>0) return;
+  b.hp -= dmg;
+  b.hitFlash = 0.12;
+  b.hitCd = 0.22;          // no recibe otro golpe inmediato (evita spam)
+  for(let i=0;i<8;i++) puff(b.x+b.w/2, b.y+b.h/2, '#9adf6a');
+  SND.bossHit();
+  if(b.hp<=0){ b.hp=0; endBoss(); }
+  else if(b.hp===Math.ceil(b.hpMax*0.5)) flash('¡El cocodrilo se enfurece!');
+}
+
+function endBoss(){
+  const b=boss;
+  b.phase='dead';
+  for(let i=0;i<40;i++) puff(b.x+b.w/2+(Math.random()-.5)*b.w, b.y+b.h/2+(Math.random()-.5)*b.h, Math.random()<.5?'#6fae5a':'#caa15a');
+  flash('¡COCODRILO DERROTADO!');
+  SND.bossDown();
+  // recompensa
+  player.hp = 3;
+  player.weapon = Math.max(player.weapon, 1);
+  player.knives += 8; if(player.weapon<2 && player.knives>0) player.weapon=2;
+  player.dist += 25;
+  floatText(b.x+b.w/2, b.y, '+25 m  🔪+8', '#ffe6a3');
+  // reabre la travesía
+  boss=null; bossMode=false;
+  nextBossDist += BOSS_GAP;
+  ui.bossbar.classList.add('hidden');
+  // limpia el suelo de arena para que la generación continúe con normalidad
+  worldEnd = Math.max(worldEnd, arenaX1+40);
+  // desbloquea la siguiente pantalla
+  currentPhase += 1;
+  if(currentPhase > unlockedPhases){
+    unlockedPhases = currentPhase;
+    try{ localStorage.setItem('selva_phases', unlockedPhases); }catch(e){}
+    flash('¡Pantalla '+currentPhase+' desbloqueada: '+phaseName(currentPhase)+'!');
+    SND.unlock();
+  }
+}
+
+
+// ============================================================
+//  Bucle de juego
+// ============================================================
+let last=0;
+function loop(ts){
+  const dt = Math.min(0.033, (ts-last)/1000 || 0);
+  last = ts;
+  if(state===STATE.PLAY) update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+function update(dt){
+  const gy = GROUND_Y();
+
+  // --- movimiento horizontal
+  let move=0;
+  if(keys.left) move-=1;
+  if(keys.right) move+=1;
+  if(move!==0) player.face = move;
+
+  const bi = biomeIndex();
+  const target = move*RUN;
+  if(bi===4 && !bossMode){
+    // La Cascada: suelo resbaladizo (acelera deprisa, frena despacio)
+    const rate = (move!==0) ? 4.2 : 2.2;
+    player.vx += (target - player.vx) * Math.min(1, rate*dt);
+  } else {
+    player.vx = target;
+  }
+  player.x += player.vx*dt;
+
+  // Cumbre Salvaje: ráfagas de viento que empujan
+  if(bi===5 && !bossMode){
+    windT += dt;
+    wind = Math.sin(windT*0.55)*95 + Math.sin(windT*1.7+1.3)*55;   // ráfagas irregulares
+    player.x += wind*dt;
+  } else { wind = 0; }
+
+  if(player.x < cameraX+10) player.x = cameraX+10;   // no salir por la izquierda
+  if(bossMode){                                       // encerrado en la arena
+    if(player.x < arenaX0+20) player.x = arenaX0+20;
+    if(player.x > arenaX1-player.w-20) player.x = arenaX1-player.w-20;
+  }
+
+  // --- salto (con doble salto: hasta 2 impulsos antes de tocar suelo)
+  if(jumpEdge && player.jumps < 2){
+    const isDouble = player.jumps === 1;
+    player.vy = -JUMP_V * (isDouble ? 0.9 : 1);   // 2.º salto un pelín más corto
+    player.onGround = false;
+    player.jumps++;
+    // efecto: el doble salto suelta un anillo de polvo dorado a media altura
+    const col = isDouble ? '#ffe6a3' : '#d8c9a3';
+    for(let i=0;i<(isDouble?6:3);i++) puff(player.x+player.w/2, player.y+player.h, col);
+    if(isDouble) SND.djump(); else SND.jump();
+  }
+  jumpEdge=false;
+
+  // --- gravedad (con detección de cruce de borde para no atravesar plataformas)
+  const prevFeet = player.y + player.h;
+  player.vy += GRAV*dt;
+  player.y += player.vy*dt;
+  const feet = player.y + player.h;
+
+  player.onGround=false;
+  if(player.vy>=0){
+    for(const p of platforms){
+      if(p.noland) continue;
+      // solape horizontal (margen para no engancharse en los bordes)
+      if(player.x+player.w > p.x+3 && player.x < p.x+p.w-3){
+        // los pies cruzaron el borde superior de la plataforma en este frame
+        if(prevFeet <= p.y+2 && feet >= p.y){
+          player.y = p.y - player.h;
+          player.vy = 0;
+          player.onGround = true;
+          break;
+        }
+      }
+    }
+  }
+  if(player.onGround) player.jumps = 0;   // al tocar suelo se recargan los saltos
+
+  // muerte por caída: cae por debajo del nivel del suelo (río/foso) o sale de pantalla
+  if(player.y+player.h > gy + 55 || player.y > H + 100){
+    return hurt(99);
+  }
+
+  // --- ataque
+  if(atkEdge){ doAttack(); }
+  atkEdge=false;
+  if(player.attack>0) player.attack -= dt;
+
+  // --- distancia / cámara
+  player.dist = Math.max(player.dist, Math.floor((player.x-120)/40));
+
+  if(bossMode){
+    cameraX = arenaX0;
+    if(boss) updateBoss(dt);
+  } else {
+    cameraX = player.x - W*0.32;
+    if(cameraX<0) cameraX=0;
+    // generar más mundo conforme avanza
+    while(worldEnd < cameraX + W + 600) genSegment();
+    // ¿toca jefe?
+    if(player.dist >= nextBossDist) startBoss();
+  }
+
+  // invulnerabilidad
+  if(player.inv>0) player.inv-=dt;
+
+  // --- enemigos
+  for(const e of enemies){
+    if(e.dead) continue;
+    e.t += dt;
+    if(e.kind==='snake'){
+      e.x += e.vx*dt;
+      if(e.x < e.minX){ e.x=e.minX; e.vx*=-1; }
+      if(e.x > e.maxX-e.w){ e.x=e.maxX-e.w; e.vx*=-1; }
+    } else if(e.kind==='croc'){
+      // emerge y se sumerge
+      e.y = e.baseY + Math.sin(e.t*1.6)*12;
+      if(e.snap>0) e.snap-=dt;
+      if(Math.random()<0.01) e.snap=0.4;
+    } else if(e.kind==='monkey'){
+      // se balancea colgado y lanza cocos cuando el jugador se acerca
+      e.swing = Math.sin(e.t*2.4)*7;
+      if(e.throwing>0) e.throwing-=dt;
+      e.cd -= dt;
+      const dx = (player.x+player.w/2) - (e.x+e.w/2);
+      if(e.cd<=0 && Math.abs(dx) < 380 && player.x > cameraX+20){
+        throwCoco(e);
+        e.cd = 1.6 + Math.random()*1.7;
+      }
+    } else if(e.kind==='piranha'){
+      // acecha bajo el agua y salta en arco cuando el jugador cruza
+      e.cd -= dt;
+      const dx=(player.x+player.w/2)-(e.x+e.w/2);
+      if(e.state==='lurk'){
+        e.y = e.baseY + Math.sin(e.t*4)*2;
+        if(e.cd<=0 && Math.abs(dx)<260){ e.state='leap'; e.vy=-640; SND.coco(); }
+      } else {
+        e.vy += GRAV*dt; e.y += e.vy*dt;
+        if(e.y >= e.baseY){ e.y=e.baseY; e.vy=0; e.state='lurk'; e.cd=0.5+Math.random()*1.0; }
+      }
+    } else if(e.kind==='spikes'){
+      // ciclo oculto → aviso → fuera
+      e.cd -= dt;
+      if(e.phase==='hidden'){ e.up=0; if(e.cd<=0){ e.phase='warn'; e.cd=0.4; } }
+      else if(e.phase==='warn'){ e.up=0.3; if(e.cd<=0){ e.phase='up'; e.cd=0.7; SND.swing(); } }
+      else { e.up=1; if(e.cd<=0){ e.phase='hidden'; e.cd=1.0+Math.random()*1.2; } }
+    } else if(e.kind==='plant'){
+      // muerde cuando el jugador se acerca; se puede cortar
+      e.cd -= dt;
+      const dx=(player.x+player.w/2)-(e.x+e.w/2);
+      if(e.phase==='idle'){
+        e.open = Math.max(0, e.open-dt*4);
+        if(e.cd<=0 && Math.abs(dx)<150){ e.phase='bite'; e.cd=0.6; SND.swing(); }
+      } else {
+        e.open = Math.min(1, e.open+dt*6);
+        if(e.cd<=0){ e.phase='idle'; e.cd=0.7+Math.random()*1.1; }
+      }
+    } else if(e.kind==='rock'){
+      // espera al jugador, marca su sombra y cae
+      if(e.phase==='wait'){
+        if(Math.abs((player.x+player.w/2)-(e.shadowX+e.w/2)) < 220){ e.phase='aim'; e.aim=0.75; }
+      } else if(e.phase==='aim'){
+        e.aim-=dt; if(e.aim<=0){ e.phase='fall'; e.vy=0; }
+      } else if(e.phase==='fall'){
+        e.vy+=GRAV*dt; e.y+=e.vy*dt;
+        if(e.y>=e.groundY){ e.y=e.groundY; e.dead=true; for(let i=0;i<10;i++) puff(e.x+e.w/2,e.groundY+e.h,'#b9b9b9'); }
+      }
+    } else if(e.kind==='bird'){
+      // vuela hacia el jugador y se lanza en picado
+      e.flap=(e.flap+dt*16)%2;
+      e.x += e.vx*dt;
+      const dx=(e.x+e.w/2)-(player.x+player.w/2);
+      if(e.phase==='approach'){
+        e.y = e.baseY + Math.sin(e.t*3)*6;
+        if(dx>0 && dx<175){ e.phase='dive'; }
+      } else if(e.phase==='dive'){
+        e.y += (Math.min(player.y, GROUND_Y()-30) - e.y) * Math.min(1,dt*4.5);
+        if(dx < -50) e.phase='recover';
+      } else {
+        e.y += (e.baseY - e.y) * Math.min(1,dt*3);
+      }
+    }
+    // colisión con el jugador (solo si el peligro está activo ahora)
+    if(player.inv<=0 && enemyHarms(e) && aabb(player, hazardBox(e))){
+      hurt(1);
+    }
+  }
+
+  // --- cocos lanzados por los monos (proyectiles enemigos en arco)
+  for(const c of cocos){
+    c.vy += GRAV*dt;
+    c.x += c.vx*dt; c.y += c.vy*dt;
+    c.spin += dt*9; c.life -= dt;
+    if(player.inv<=0 && aabb(c, player)){ hurt(1); c.life=0; continue; }
+    if(c.y+c.h > gy+2){ for(let i=0;i<4;i++) puff(c.x+8, gy, '#6b4423'); c.life=0; }
+  }
+  cocos = cocos.filter(c=> c.life>0 && c.x>cameraX-60 && c.x<cameraX+W+80);
+
+  // --- proyectiles
+  for(const s of shots){
+    s.x += s.vx*dt;
+    s.life-=dt;
+    for(const e of enemies){
+      if(e.dead || e.invuln) continue;
+      if(aabb(s,e)){ damageEnemy(e,1); s.life=0; break; }
+    }
+  }
+  shots = shots.filter(s=> s.life>0 && s.x>cameraX-50 && s.x<cameraX+W+50);
+
+  // --- items
+  for(const it of items){
+    if(it.taken) continue;
+    it.bob += dt*4;
+    if(aabb(player, it)) takeItem(it);
+  }
+  items = items.filter(it=> !it.taken && it.x > cameraX-100);
+
+  // --- partículas
+  for(const pt of parts){ pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; pt.vy+=900*dt; pt.life-=dt; }
+  parts = parts.filter(pt=>pt.life>0);
+
+  // --- textos flotantes (+10 de las manzanas, etc.)
+  for(const f of floats){ f.y += f.vy*dt; f.vy += 60*dt; f.life -= dt; }
+  floats = floats.filter(f=>f.life>0);
+
+  // limpiar enemigos lejanos
+  enemies = enemies.filter(e=> !e.dead && e.x > cameraX-200);
+  platforms = platforms.filter(p=> p.x+p.w > cameraX-300);
+
+  updateHUD();
+}
+
+function doAttack(){
+  if(player.weapon===2 && player.knives>0){
+    // lanza cuchillo
+    player.knives--;
+    shots.push({x:player.x+player.w/2, y:player.y+player.h*0.4, w:18, h:6,
+      vx:player.face*640, life:1.0});
+    player.attack=0.18;
+    SND.knife();
+  } else if(player.weapon>=1){
+    // machete: golpe de área frontal
+    player.attack=0.22;
+    SND.swing();
+    const hb = {x: player.face>0? player.x+player.w : player.x-46, y:player.y+6, w:50, h:player.h-8};
+    for(const e of enemies){
+      if(!e.dead && !e.invuln && aabb(hb,e)) damageEnemy(e,2);
+    }
+    if(boss && aabb(hb,boss)) hitBoss(boss.vulnerable?2:0);
+  } else {
+    // a mano: empujón muy corto
+    player.attack=0.18;
+    SND.swing();
+    const hb = {x: player.face>0? player.x+player.w : player.x-26, y:player.y+10, w:28, h:player.h-16};
+    for(const e of enemies){
+      if(!e.dead && e.kind==='snake' && aabb(hb,e)) damageEnemy(e,1);
+    }
+  }
+}
+
+function damageEnemy(e,dmg){
+  e.hp-=dmg;
+  puff(e.x+e.w/2, e.y, '#9adf6a');
+  if(e.hp<=0){
+    e.dead=true;
+    player.dist += 8;   // bonus por matar
+    for(let i=0;i<6;i++) puff(e.x+e.w/2, e.y, e.kind==='croc'?'#6fae5a':'#caa15a');
+    SND.enemyDown();
+  }
+}
+
+function takeItem(it){
+  it.taken=true;
+  if(it.type==='machete'){ player.weapon=Math.max(player.weapon,1); flash('¡Machete!'); SND.weapon(); }
+  else if(it.type==='knives'){ player.weapon=2; player.knives+=5; flash('Cuchillos +5'); SND.weapon(); }
+  else if(it.type==='heart'){ player.hp=Math.min(3,player.hp+1); SND.apple(); }
+  else if(it.type==='fruit'){ player.apples++; floatText(it.x, it.y-6, '+10', '#ffd36b'); SND.apple(); }
+  puff(it.x, it.y, '#ffd36b');
+}
+
+let flashMsg='', flashT=0;
+function flash(t){ flashMsg=t; flashT=1.2; }
+function floatText(x,y,text,color){ floats.push({x,y,vy:-46,life:0.9,text,color}); }
+
+function hurt(dmg){
+  if(dmg>=99){ die(); return; }
+  if(player.inv>0) return;
+  player.hp-=dmg;
+  player.inv=1.1;
+  player.vy=-380; player.vx=-player.face*200;
+  for(let i=0;i<8;i++) puff(player.x+player.w/2, player.y+player.h/2, '#e5484d');
+  SND.hurt();
+  if(player.hp<=0) die();
+}
+
+function die(){
+  if(state!==STATE.PLAY) return;
+  player.alive=false;
+  state=STATE.OVER;
+  const isRecord = player.dist>best;
+  if(isRecord){ best=player.dist; try{ localStorage.setItem('selva_best', best); }catch(e){} }
+  ui.finalScore.textContent = player.dist+' m';
+  ui.bestLine.textContent = '🍎 '+player.apples+' manzanas  ·  Mejor: '+best+' m';
+  ui.overMsg.textContent = isRecord ? '¡Nuevo récord!' : 'No sobreviviste a la selva';
+  ui.over.classList.remove('hidden');
+  ui.hud.classList.add('hidden');
+  ui.weapon.classList.add('hidden');
+  ui.pad.classList.add('hidden');
+  ui.bossbar.classList.add('hidden');
+  SND.stopMusic();
+  SND.gameOver();
+}
+
+function puff(x,y,color){
+  for(let i=0;i<3;i++){
+    parts.push({x,y,vx:(Math.random()-.5)*180, vy:(Math.random()-.7)*220,
+      life:.4+Math.random()*.3, color, r:2+Math.random()*2});
+  }
+}
+
+function aabb(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+// ¿el contacto de este enemigo daña ahora mismo?
+function enemyHarms(e){
+  switch(e.kind){
+    case 'monkey': return false;                 // solo dañan sus cocos
+    case 'piranha': return e.state==='leap';     // solo fuera del agua
+    case 'spikes': return e.up>=0.9;             // solo del todo fuera
+    case 'plant': return e.phase==='bite' && e.open>0.4;
+    case 'rock': return e.phase==='fall';        // solo mientras cae
+    case 'bird': return e.phase!=='recover';
+    default: return true;                        // serpiente, cocodrilo
+  }
+}
+// caja de daño (ajustada para los pinchos, que emergen)
+function hazardBox(e){
+  if(e.kind==='spikes'){ const hh=e.up*e.h; return {x:e.x+4, y:GROUND_Y()-hh, w:e.w-8, h:hh}; }
+  return e;
+}
+
+// ============================================================
+//  Render
+// ============================================================
+function render(){
+  const B = currentBiome();
+  // cielo
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,B.sky[0]);
+  g.addColorStop(.45,B.sky[1]);
+  g.addColorStop(1,B.sky[2]);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // sol / luna
+  if(B.showSun){
+    ctx.save();
+    ctx.globalAlpha=.85;
+    ctx.fillStyle=B.sun;
+    ctx.beginPath(); ctx.arc(W*0.72, H*0.26, Math.min(W,H)*0.12, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
+
+  drawParallax(B);
+
+  if(state!==STATE.MENU){
+    ctx.save();
+    ctx.translate(-cameraX,0);
+    drawWorld(B);
+    ctx.restore();
+  }
+
+  // niebla / bruma de ambiente del bioma
+  if(B.fog){ ctx.fillStyle=B.fog; ctx.fillRect(0,0,W,H); }
+
+  // líneas de viento (Cumbre Salvaje)
+  if(state!==STATE.MENU && biomeIndex()===5){
+    const dir = wind>=0 ? 1 : -1;
+    const spd = 240 + Math.abs(wind)*3.2;
+    const len = 34 + Math.abs(wind)*0.7;
+    const t = performance.now()/1000;
+    ctx.save();
+    ctx.strokeStyle='rgba(255,242,232,0.16)';
+    ctx.lineWidth=2;
+    for(let i=0;i<14;i++){
+      const y = (i*57 + i*i*11) % H;
+      let x = ((t*spd*dir) + i*170) % (W+240);
+      if(x<0) x += W+240;
+      x -= 120;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len*dir, y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // mensaje flotante
+  if(flashT>0){
+    flashT-=0.016;
+    ctx.save();
+    ctx.globalAlpha=Math.min(1,flashT);
+    ctx.fillStyle='#ffe6a3';
+    ctx.font='800 28px Trebuchet MS, sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText(flashMsg, W/2, H*0.32);
+    ctx.restore();
+  }
+}
+
+// capas de fondo con parallax
+function drawParallax(B){
+  const gy=GROUND_Y();
+  // montañas/colinas lejanas
+  layerHills(cameraX*0.15, gy-40, B.hillFar, 160, 220);
+  layerHills(cameraX*0.30, gy-10, B.hillNear, 120, 150);
+  // copas de árboles cercanas (silueta superior)
+  ctx.save();
+  ctx.fillStyle=B.canopy;
+  const step=120, off=(cameraX*0.45)%step;
+  ctx.beginPath();
+  ctx.moveTo(-off-step,0);
+  for(let x=-off-step; x<W+step; x+=step){
+    ctx.lineTo(x, 60+Math.sin(x*0.05)*14);
+    ctx.quadraticCurveTo(x+step/2, 110+Math.cos(x*0.07)*16, x+step, 60+Math.sin((x+step)*0.05)*14);
+  }
+  ctx.lineTo(W+step,0); ctx.closePath(); ctx.fill();
+  // lianas
+  ctx.strokeStyle=B.vine; ctx.lineWidth=4;
+  for(let x=-off; x<W+step; x+=step){
+    ctx.beginPath(); ctx.moveTo(x,40);
+    ctx.quadraticCurveTo(x+10,120,x-6,180); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function layerHills(scroll, baseY, color, h, span){
+  ctx.save();
+  ctx.fillStyle=color;
+  const off = scroll % span;
+  ctx.beginPath();
+  ctx.moveTo(-off-span, H);
+  for(let x=-off-span; x<W+span; x+=span){
+    ctx.lineTo(x, baseY);
+    ctx.quadraticCurveTo(x+span/2, baseY-h, x+span, baseY);
+  }
+  ctx.lineTo(W+span,H); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawWorld(B){
+  const gy=GROUND_Y();
+  B = B || currentBiome();
+
+  // plataformas
+  for(const p of platforms){
+    if(p.x+p.w < cameraX-50 || p.x>cameraX+W+50) continue;
+    if(p.water){
+      // agua del río
+      ctx.fillStyle=B.water;
+      ctx.fillRect(p.x, gy+6, p.w, H);
+      ctx.fillStyle='rgba(255,255,255,0.12)';
+      for(let x=p.x; x<p.x+p.w; x+=34){
+        ctx.fillRect(x+((performance.now()/40)%34), gy+12+((x*0.3)%8), 16, 3);
+      }
+    } else if(p.pit){
+      ctx.fillStyle=B.pit;
+      ctx.fillRect(p.x, gy+8, p.w, H);
+    } else if(p.log){
+      // tronco para cruzar
+      ctx.fillStyle=B.logA;
+      roundRect(p.x, p.y, p.w, p.h, 8); ctx.fill();
+      ctx.fillStyle=B.logB;
+      ctx.beginPath(); ctx.arc(p.x+8,p.y+p.h/2,5,0,7); ctx.arc(p.x+p.w-8,p.y+p.h/2,5,0,7); ctx.fill();
+    } else {
+      // suelo de tierra con hierba
+      ctx.fillStyle=B.earth;
+      ctx.fillRect(p.x, p.y, p.w, H);
+      ctx.fillStyle=B.grass;
+      ctx.fillRect(p.x, p.y, p.w, 12);
+      ctx.fillStyle=B.blade;
+      for(let x=p.x; x<p.x+p.w; x+=12){
+        ctx.fillRect(x, p.y-4, 3, 6);
+      }
+    }
+  }
+
+  // items
+  for(const it of items){
+    if(it.taken) continue;
+    const yy = it.y + Math.sin(it.bob)*5;
+    drawItem(it.type, it.x, yy, it.w);
+  }
+
+  // enemigos
+  for(const e of enemies){ if(!e.dead) drawEnemy(e); }
+
+  // proyectiles
+  for(const s of shots){
+    ctx.save();
+    ctx.fillStyle='#e8e1cf';
+    ctx.translate(s.x, s.y);
+    ctx.fillRect(0,0,s.w,s.h);
+    ctx.fillStyle='#b9b099';
+    ctx.fillRect(s.vx>0?s.w-4:0,-1,4,s.h+2);
+    ctx.restore();
+  }
+
+  // cocos lanzados por los monos
+  for(const c of cocos){
+    ctx.save();
+    ctx.translate(c.x+c.w/2, c.y+c.h/2);
+    ctx.rotate(c.spin);
+    ctx.fillStyle='#5b3a1e';
+    ctx.beginPath(); ctx.arc(0,0,c.w/2,0,7); ctx.fill();
+    ctx.fillStyle='#7a5230';
+    ctx.beginPath(); ctx.arc(-2,-2,c.w/2-3,0,7); ctx.fill();
+    ctx.fillStyle='#3f2814';
+    ctx.beginPath(); ctx.arc(-2,-1,1.6,0,7); ctx.arc(3,1,1.4,0,7); ctx.arc(0,3,1.4,0,7); ctx.fill();
+    ctx.restore();
+  }
+
+  // muros de la arena y jefe
+  if(bossMode) drawArenaWalls();
+  if(boss) drawBoss();
+
+  // jugador
+  drawPlayer();
+
+  // partículas
+  for(const pt of parts){
+    ctx.globalAlpha=Math.max(0,pt.life*2);
+    ctx.fillStyle=pt.color;
+    ctx.fillRect(pt.x, pt.y, pt.r, pt.r);
+    ctx.globalAlpha=1;
+  }
+
+  // textos flotantes (+10)
+  ctx.textAlign='center';
+  ctx.font='800 18px Trebuchet MS, sans-serif';
+  for(const f of floats){
+    ctx.globalAlpha=Math.max(0, Math.min(1, f.life*1.6));
+    ctx.fillStyle='rgba(0,0,0,0.4)';
+    ctx.fillText(f.text, f.x+1, f.y+1);
+    ctx.fillStyle=f.color;
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.globalAlpha=1;
+  }
+  ctx.textAlign='left';
+}
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function drawItem(type,x,y,s){
+  ctx.save();
+  ctx.translate(x,y);
+  if(type==='machete'){
+    ctx.strokeStyle='#1c140a'; ctx.lineWidth=2;
+    ctx.fillStyle='#d9dde2';
+    ctx.beginPath(); ctx.moveTo(-2,12); ctx.lineTo(-2,-8); ctx.lineTo(6,-12); ctx.lineTo(6,8); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#6b4423'; ctx.fillRect(-5,8,8,10);
+  } else if(type==='knives'){
+    ctx.fillStyle='#cfd4da';
+    ctx.beginPath(); ctx.moveTo(-8,0); ctx.lineTo(6,-4); ctx.lineTo(10,0); ctx.lineTo(6,4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#6b4423'; ctx.fillRect(-12,-3,6,6);
+  } else if(type==='heart'){
+    ctx.fillStyle='#e5484d';
+    ctx.beginPath();
+    ctx.moveTo(0,4); ctx.bezierCurveTo(-12,-8,-6,-14,0,-6);
+    ctx.bezierCurveTo(6,-14,12,-8,0,4); ctx.fill();
+  } else { // manzana
+    // cuerpo rojo con dos lóbulos
+    ctx.fillStyle='#e23b3b';
+    ctx.beginPath(); ctx.arc(-3,1,7,0,7); ctx.arc(3,1,7,0,7); ctx.fill();
+    // brillo
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(-3,-2,2.2,0,7); ctx.fill();
+    // tallo y hoja
+    ctx.strokeStyle='#6b4423'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(0,-11); ctx.stroke();
+    ctx.fillStyle='#3f9d33';
+    ctx.beginPath(); ctx.ellipse(4,-10,4,2.2,-0.6,0,7); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawEnemy(e){
+  ctx.save();
+  ctx.translate(e.x,e.y);
+  if(e.kind==='snake'){
+    ctx.fillStyle='#5a8b2e';
+    roundRect(0,0,e.w,e.h,9); ctx.fill();
+    // patrón
+    ctx.fillStyle='#3c641f';
+    for(let i=4;i<e.w-6;i+=10) ctx.fillRect(i,3,5,e.h-6);
+    // cabeza
+    const hx = e.vx>0? e.w-4:0;
+    ctx.fillStyle='#6fa53a';
+    ctx.beginPath(); ctx.arc(hx,e.h/2,8,0,7); ctx.fill();
+    ctx.fillStyle='#1a1a1a';
+    ctx.beginPath(); ctx.arc(hx+(e.vx>0?3:-3), e.h/2-2,2,0,7); ctx.fill();
+  } else if(e.kind==='croc'){
+    ctx.fillStyle='#4f7a3f';
+    roundRect(0,0,e.w,e.h,7); ctx.fill();
+    // lomo dentado
+    ctx.fillStyle='#3c5e31';
+    for(let i=6;i<e.w-10;i+=10){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i+5,-6); ctx.lineTo(i+10,0); ctx.fill(); }
+    // mandíbula
+    const mouth = e.snap>0;
+    ctx.fillStyle='#3c5e31';
+    ctx.fillRect(e.w-22, mouth?-6:2, 22, 8);
+    ctx.fillStyle='#f4ead4';
+    if(mouth){ for(let i=0;i<5;i++) ctx.fillRect(e.w-20+i*4, -2, 2, 4); }
+    ctx.fillStyle='#ffd36b';
+    ctx.beginPath(); ctx.arc(e.w-26,2,3,0,7); ctx.fill();
+  } else if(e.kind==='monkey'){ // mono colgado de una rama
+    const sw = e.swing||0;
+    // rama de la que cuelga (en coordenadas relativas al mono)
+    ctx.fillStyle='#4d3318';
+    ctx.fillRect(-34, (e.branchY-e.y), e.w+68, 9);
+    ctx.fillStyle='#3a5e26';
+    ctx.beginPath(); ctx.ellipse(-30,(e.branchY-e.y)+2,16,9,0,0,7);
+    ctx.ellipse(e.w+30,(e.branchY-e.y)+2,16,9,0,0,7); ctx.fill();
+    // brazo que se agarra a la rama
+    ctx.strokeStyle='#5b3a1e'; ctx.lineWidth=5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(e.w/2+sw, 4); ctx.lineTo(e.w/2, (e.branchY-e.y)+4); ctx.stroke();
+    ctx.save();
+    ctx.translate(sw,0);   // balanceo
+    // cola enroscada
+    ctx.strokeStyle='#5b3a1e'; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.moveTo(e.w/2,e.h-6);
+    ctx.quadraticCurveTo(e.w+10,e.h+4,e.w+4,e.h-12); ctx.stroke();
+    // cuerpo
+    ctx.fillStyle='#6b4423';
+    roundRect(4,6,e.w-8,e.h-8,11); ctx.fill();
+    // barriga
+    ctx.fillStyle='#a9824f';
+    roundRect(10,14,e.w-20,e.h-16,8); ctx.fill();
+    // orejas
+    ctx.fillStyle='#5b3a1e';
+    ctx.beginPath(); ctx.arc(8,8,6,0,7); ctx.arc(e.w-8,8,6,0,7); ctx.fill();
+    // cara
+    ctx.fillStyle='#caa06a';
+    ctx.beginPath(); ctx.arc(e.w/2,12,9,0,7); ctx.fill();
+    ctx.fillStyle='#1d1208';
+    ctx.beginPath(); ctx.arc(e.w/2-3,11,1.6,0,7); ctx.arc(e.w/2+3,11,1.6,0,7); ctx.fill();
+    ctx.fillRect(e.w/2-3,15,6,1.5);
+    // brazo lanzador (arriba si está lanzando)
+    ctx.strokeStyle='#6b4423'; ctx.lineWidth=5;
+    ctx.beginPath();
+    if(e.throwing>0){ ctx.moveTo(e.w-8,16); ctx.lineTo(e.w+6,2); }
+    else { ctx.moveTo(e.w-8,18); ctx.lineTo(e.w+2,26); }
+    ctx.stroke();
+    ctx.restore();
+  } else if(e.kind==='piranha'){
+    // pez con dientes
+    ctx.fillStyle = e.state==='leap' ? '#8a9a72' : '#5f6e52';
+    ctx.beginPath(); ctx.ellipse(e.w/2,e.h/2,e.w/2,e.h/2,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0,e.h/2); ctx.lineTo(-8,e.h/2-6); ctx.lineTo(-8,e.h/2+6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#3a2222'; ctx.fillRect(e.w-9,e.h/2-2,9,5);
+    ctx.fillStyle='#f4ead4'; for(let i=0;i<3;i++) ctx.fillRect(e.w-8+i*3,e.h/2-2,1.4,3);
+    ctx.fillStyle='#ffd36b'; ctx.beginPath(); ctx.arc(e.w-13,e.h/2-3,2.4,0,7); ctx.fill();
+    ctx.fillStyle='#1a1a1a'; ctx.beginPath(); ctx.arc(e.w-13,e.h/2-3,1,0,7); ctx.fill();
+  } else if(e.kind==='spikes'){
+    const sh = e.up*e.h;
+    if(sh>1){
+      ctx.fillStyle = e.up>=0.9 ? '#cdd4da' : '#9aa2aa';   // brillan cuando están fuera
+      for(let i=0;i+10<=e.w;i+=10){
+        ctx.beginPath(); ctx.moveTo(i+1,0); ctx.lineTo(i+5,-sh); ctx.lineTo(i+9,0); ctx.closePath(); ctx.fill();
+      }
+      ctx.fillStyle='#6a727a'; ctx.fillRect(0,-2,e.w,4);
+    }
+  } else if(e.kind==='plant'){
+    // tallo y hojas
+    ctx.fillStyle='#357a40'; ctx.fillRect(e.w/2-3,18,6,e.h-18);
+    ctx.beginPath(); ctx.ellipse(e.w/2,e.h,12,4,0,0,7); ctx.fill();
+    ctx.fillStyle='#2f6a38'; ctx.beginPath(); ctx.ellipse(e.w/2-9,e.h-8,7,3,-0.5,0,7); ctx.ellipse(e.w/2+9,e.h-8,7,3,0.5,0,7); ctx.fill();
+    // cabeza atrapamoscas
+    const op=e.open*8;
+    ctx.save(); ctx.translate(e.w/2,15);
+    ctx.fillStyle='#c23b5e';
+    ctx.beginPath(); ctx.ellipse(0,-op,11,9,0,Math.PI,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, op,11,9,0,0,Math.PI); ctx.fill();
+    if(e.open>0.3){
+      ctx.fillStyle='#f4ead4';
+      for(let i=-2;i<=2;i++){ ctx.beginPath(); ctx.moveTo(i*4-1,-op+1); ctx.lineTo(i*4+1,-op+7); ctx.lineTo(i*4+3,-op+1); ctx.fill(); }
+    }
+    ctx.restore();
+  } else if(e.kind==='rock'){
+    // sombra de aviso en el suelo
+    if(e.phase==='aim'||e.phase==='fall'){
+      const gly=(e.groundY+e.h)-e.y;
+      const sc=e.phase==='aim'?(0.55+0.45*Math.sin(performance.now()/70)):1;
+      ctx.fillStyle='rgba(0,0,0,0.30)';
+      ctx.beginPath(); ctx.ellipse(e.w/2,gly,e.w*0.5*sc,6,0,0,7); ctx.fill();
+    }
+    if(e.phase==='fall'){
+      ctx.fillStyle='#9aa0a6'; ctx.beginPath(); ctx.arc(e.w/2,e.h/2,e.w/2,0,7); ctx.fill();
+      ctx.fillStyle='#7b8187'; ctx.beginPath(); ctx.arc(e.w/2-4,e.h/2-4,e.w/2-7,0,7); ctx.fill();
+      ctx.fillStyle='#646a70'; ctx.beginPath(); ctx.arc(e.w/2+5,e.h/2+4,3,0,7); ctx.fill();
+    }
+  } else if(e.kind==='bird'){
+    const up = e.flap<1;
+    ctx.fillStyle='#33243a';
+    ctx.beginPath(); ctx.ellipse(e.w/2,e.h/2,e.w*0.32,e.h*0.55,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(e.w*0.18,e.h/2,5,0,7); ctx.fill();
+    ctx.fillStyle='#e5a23d'; ctx.beginPath(); ctx.moveTo(e.w*0.12,e.h/2-1); ctx.lineTo(-2,e.h/2); ctx.lineTo(e.w*0.12,e.h/2+2); ctx.fill();
+    ctx.fillStyle='#241830';
+    if(up){ ctx.beginPath(); ctx.moveTo(e.w*0.5,e.h/2); ctx.lineTo(e.w*0.72,-3); ctx.lineTo(e.w*0.9,e.h/2); ctx.closePath(); ctx.fill(); }
+    else  { ctx.beginPath(); ctx.moveTo(e.w*0.5,e.h/2); ctx.lineTo(e.w*0.72,e.h+3); ctx.lineTo(e.w*0.9,e.h/2); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle='#ffe44d'; ctx.beginPath(); ctx.arc(e.w*0.2,e.h/2-1,1.5,0,7); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawArenaWalls(){
+  const gy = GROUND_Y();
+  for(const wx of [arenaX0, arenaX1]){
+    const side = wx===arenaX0 ? -1 : 1;
+    ctx.save();
+    // seto denso de selva que cierra el paso
+    ctx.fillStyle='#15301a';
+    ctx.fillRect(side<0 ? wx-60 : wx, 0, 60, gy+20);
+    ctx.fillStyle='#1d3f23';
+    for(let y=10; y<gy; y+=34){
+      ctx.beginPath();
+      ctx.arc(wx + side*18, y, 22, 0, 7); ctx.fill();
+    }
+    // troncos verticales
+    ctx.fillStyle='#3b2a1a';
+    ctx.fillRect(wx + side*40, 40, 12, gy-40);
+    ctx.restore();
+  }
+}
+
+function drawBoss(){
+  const b=boss; if(!b) return;
+  const telegraph = b.phase==='telegraph';
+  const stun = b.phase==='stun';
+  ctx.save();
+  ctx.translate(b.x + b.w/2, b.y);
+  if(b.face<0) ctx.scale(-1,1);
+  ctx.translate(-b.w/2, 0);
+  const w=b.w, h=b.h;
+  if(telegraph) ctx.translate(0, 6);        // se agacha al avisar la embestida
+
+  // sombra
+  ctx.fillStyle='rgba(0,0,0,0.18)';
+  ctx.beginPath(); ctx.ellipse(w/2, h+6, w*0.5, 8, 0, 0, 7); ctx.fill();
+
+  // cola (se estrecha hacia atrás, lado izquierdo)
+  ctx.fillStyle='#3f6b34';
+  ctx.beginPath();
+  ctx.moveTo(20, h*0.4); ctx.lineTo(-26, h*0.62); ctx.lineTo(20, h*0.8); ctx.closePath(); ctx.fill();
+
+  // cuerpo
+  ctx.fillStyle = stun ? '#5f8a4a' : '#4f7a3f';
+  roundRect(14, 20, w-30, h-26, 16); ctx.fill();
+  // vientre
+  ctx.fillStyle='#86a85a';
+  roundRect(26, 34, w-58, h-30, 10); ctx.fill();
+  // patas
+  ctx.fillStyle='#3f6b34';
+  ctx.fillRect(34, h-6, 16, 12);
+  ctx.fillRect(w-66, h-6, 16, 12);
+
+  // lomo dentado
+  ctx.fillStyle='#345c2b';
+  for(let i=24;i<w-44;i+=18){
+    ctx.beginPath(); ctx.moveTo(i,20); ctx.lineTo(i+9,6); ctx.lineTo(i+18,20); ctx.closePath(); ctx.fill();
+  }
+
+  // cabeza (lado derecho)
+  const hx=w-58;
+  ctx.fillStyle = stun ? '#5f8a4a' : '#4f7a3f';
+  roundRect(hx, 16, 64, 30, 10); ctx.fill();
+
+  // mandíbulas
+  const open = Math.min(1, b.mouth>0 ? 1 : (telegraph?0.6:0.05));
+  const jaw = open*16;
+  // superior
+  ctx.fillStyle='#4f7a3f';
+  ctx.beginPath();
+  ctx.moveTo(hx+6, 22-jaw*0.4); ctx.lineTo(hx+64, 16); ctx.lineTo(hx+64, 28); ctx.lineTo(hx+6, 30-jaw*0.4); ctx.closePath(); ctx.fill();
+  // inferior
+  ctx.fillStyle='#436b39';
+  ctx.beginPath();
+  ctx.moveTo(hx+8, 34+jaw); ctx.lineTo(hx+62, 30+jaw); ctx.lineTo(hx+62, 40+jaw); ctx.lineTo(hx+8, 42+jaw); ctx.closePath(); ctx.fill();
+  // dientes
+  ctx.fillStyle='#f4ead4';
+  for(let i=0;i<6;i++){ ctx.fillRect(hx+14+i*8, 28-jaw*0.4, 3, 4); ctx.fillRect(hx+16+i*8, 34+jaw-4, 3, 4); }
+
+  // ojo
+  ctx.fillStyle='#ffd36b';
+  ctx.beginPath(); ctx.arc(hx+12, 12, 7, 0, 7); ctx.fill();
+  ctx.fillStyle='#1a1a1a';
+  ctx.beginPath(); ctx.arc(hx+14, 12, 3, 0, 7); ctx.fill();
+
+  // marcador de vulnerable
+  if(b.vulnerable){
+    ctx.strokeStyle='rgba(255,230,120,'+(0.5+0.5*Math.sin(performance.now()/90))+')';
+    ctx.lineWidth=3;
+    roundRect(10, 14, w-10, h-10, 16); ctx.stroke();
+  }
+  // destello al recibir golpe
+  if(b.hitFlash>0){
+    ctx.globalAlpha=0.6; ctx.fillStyle='#ffffff';
+    roundRect(14, 14, w-20, h-12, 16); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawPlayer(){
+  const p=player;
+  ctx.save();
+  ctx.translate(p.x+p.w/2, p.y);
+  if(p.face<0) ctx.scale(-1,1);
+  // parpadeo de invulnerabilidad
+  if(p.inv>0 && Math.floor(p.inv*16)%2===0) ctx.globalAlpha=0.4;
+
+  const hw=p.w/2;
+  // piernas (animación de carrera)
+  const run = Math.abs(p.vx)>10 && p.onGround;
+  const swing = run? Math.sin(performance.now()/90)*8 : 0;
+  ctx.fillStyle='#2f2117';
+  ctx.fillRect(-8, p.h-16, 8, 16+ (p.onGround?swing:4));
+  ctx.fillRect(2,  p.h-16, 8, 16- (p.onGround?swing:0));
+  // torso (camisa de explorador)
+  ctx.fillStyle='#c98a3c';
+  roundRect(-hw, 12, p.w, p.h-26, 5); ctx.fill();
+  // mochila
+  ctx.fillStyle='#5a3d22';
+  ctx.fillRect(-hw-5, 16, 8, 20);
+  // cabeza
+  ctx.fillStyle='#e7b98c';
+  ctx.beginPath(); ctx.arc(2, 6, 10, 0, 7); ctx.fill();
+  // sombrero de explorador
+  ctx.fillStyle='#7a5a31';
+  ctx.fillRect(-9,-2,22,4);
+  ctx.fillRect(-4,-9,14,8);
+  // brazo / arma
+  ctx.fillStyle='#c98a3c';
+  if(p.attack>0){
+    if(p.weapon>=1 && p.weapon!==2){
+      // machete extendido
+      ctx.save(); ctx.translate(hw,18); ctx.rotate(-0.5);
+      ctx.fillStyle='#6b4423'; ctx.fillRect(0,-2,10,6);
+      ctx.fillStyle='#d9dde2'; ctx.fillRect(10,-3,30,8); ctx.restore();
+    } else {
+      ctx.fillRect(hw-2,16,18,7);
+    }
+  } else {
+    ctx.fillRect(hw-4,18,8,16);
+    if(p.weapon===1){ ctx.fillStyle='#d9dde2'; ctx.fillRect(hw+2,8,5,22); }
+    if(p.weapon===2){ ctx.fillStyle='#cfd4da'; ctx.fillRect(hw+2,18,12,4); }
+  }
+  ctx.restore();
+}
+
+// ============================================================
+//  HUD
+// ============================================================
+function updateHUD(){
+  ui.hearts.textContent = '❤'.repeat(Math.max(0,player.hp)) + '✕'.repeat(Math.max(0,3-player.hp));
+  ui.score.textContent = player.dist + ' m';
+  ui.apples.textContent = '🍎 ' + player.apples;
+  let wname = 'A mano';
+  if(player.weapon===1) wname='Machete';
+  if(player.weapon===2) wname='Cuchillos · '+player.knives;
+  ui.weapon.textContent = wname;
+}
+
+// ============================================================
+//  Flujo de pantallas
+// ============================================================
+function startGame(phase){
+  currentPhase = Math.min(Math.max(1, phase||1), unlockedPhases);
+  resetWorld(phaseStartDist(currentPhase));
+  state=STATE.PLAY;
+  SND.init(); SND.startMusic();
+  ui.start.classList.add('hidden');
+  ui.over.classList.add('hidden');
+  ui.bossbar.classList.add('hidden');
+  ui.hud.classList.remove('hidden');
+  ui.weapon.classList.remove('hidden');
+  ui.pad.classList.remove('hidden');
+  flash(currentPhase>1 ? ('Pantalla '+currentPhase+': '+phaseName(currentPhase)) : '¡Adelante, explorador!');
+  updateHUD();
+}
+
+// muestra el menú de inicio con el selector de pantallas
+function showMenu(){
+  state=STATE.MENU;
+  SND.stopMusic();
+  ui.over.classList.add('hidden');
+  ui.hud.classList.add('hidden');
+  ui.weapon.classList.add('hidden');
+  ui.pad.classList.add('hidden');
+  ui.bossbar.classList.add('hidden');
+  ui.start.classList.remove('hidden');
+  renderPhases();
+}
+
+// construye los botones de fase (desbloqueadas + la siguiente con candado)
+function renderPhases(){
+  const box = document.getElementById('phases');
+  box.innerHTML = '';
+  const total = Math.min(unlockedPhases+1, Math.max(unlockedPhases, PHASE_NAMES.length+1));
+  for(let k=1; k<=total; k++){
+    const locked = k>unlockedPhases;
+    const b = document.createElement('button');
+    b.className = 'phase-btn' + (locked?' locked':'');
+    b.innerHTML = locked
+      ? ('<span class="pn">🔒</span><span class="pl">Pantalla '+k+'</span>')
+      : ('<span class="pn">'+k+'</span><span class="pl">'+phaseName(k)+'</span>');
+    if(!locked) b.addEventListener('click', ()=>startGame(k));
+    box.appendChild(b);
+  }
+}
+
+document.getElementById('retry').addEventListener('click', ()=>startGame(currentPhase));
+document.getElementById('menu').addEventListener('click', showMenu);
+
+// botón de silencio
+const muteBtn = document.getElementById('mute');
+muteBtn.textContent = SND.isMuted() ? '🔇' : '🔊';
+muteBtn.addEventListener('click', ()=>{
+  SND.init();
+  const m = SND.toggleMute();
+  muteBtn.textContent = m ? '🔇' : '🔊';
+});
+
+renderPhases();
+ui.bestLine.textContent = 'Mejor marca: '+best+' m';
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
