@@ -1,0 +1,16 @@
+{
+  "name": "selva-la-travesia",
+  "version": "1.0.0",
+  "description": "SELVA · La Travesía — runner de supervivencia en la selva",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}

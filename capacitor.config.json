@@ -1,0 +1,8 @@
+{
+  "appId": "com.joseluengo.selva",
+  "appName": "SELVA",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#0e140c"
+  }
+}
